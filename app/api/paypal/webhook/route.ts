@@ -1,21 +1,32 @@
+import { NextResponse } from "next/server";
+
 export async function POST(req: Request) {
-  // 1. Move the request parsing inside the function handler
-  const event: {
-    event_type?: string;
-    resource?: {
-      id?: string;
-      billing_agreement_id?: string;
-      custom_id?: string;
-      plan_id?: string;
-    };
-  } = await req.json();
+  try {
+    // 1. Safely parse the incoming request body inside the handler
+    const event = await req.json();
 
-  // 2. Put your webhook processing logic here
-  console.log("Received PayPal event:", event.event_type);
+    const eventType = event.event_type;
+    const resource = event.resource;
 
-  // 3. Always return a response to acknowledge the webhook
-  return new Response(JSON.stringify({ status: "success" }), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-  });
+    console.log(`Received PayPal Webhook event: ${eventType}`);
+
+    // 2. Add your webhook processing / database logic here
+    switch (eventType) {
+      case "PAYMENT.SALE.COMPLETED":
+        console.log(`Sale completed for ID: ${resource?.id}`);
+        break;
+      case "BILLING.SUBSCRIPTION.ACTIVATED":
+        console.log(`Subscription activated: ${resource?.id}`);
+        break;
+      default:
+        console.log(`Unhandled event type: ${eventType}`);
+    }
+
+    // 3. Always return a 2xx response so PayPal knows you received it
+    return NextResponse.json({ received: true }, { status: 200 });
+
+  } catch (error: any) {
+    console.error("Error processing PayPal webhook on Cloudflare Worker:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
 }
